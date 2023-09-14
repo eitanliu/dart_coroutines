@@ -1,6 +1,11 @@
+library coroutines.job;
+
 import 'dart:async';
 
 import 'package:coroutines/core.dart';
+import 'package:coroutines/coroutine_scope.dart';
+
+part 'job_support.dart';
 
 abstract class Job extends CoroutineContextElement {
   static final sKey = CoroutineContextKey<Job>();
@@ -8,7 +13,7 @@ abstract class Job extends CoroutineContextElement {
   @override
   CoroutineContextKey<Job> get key => sKey;
 
-  Job? parent;
+  Job? get parent;
 
   bool get isActive;
 
@@ -16,7 +21,9 @@ abstract class Job extends CoroutineContextElement {
 
   bool get isCancelled;
 
+  Future<void> join();
+
   void cancelJob([CancellationException? cause]);
 
-  Future<void> join();
+  CancellationException getCancellationException();
 }

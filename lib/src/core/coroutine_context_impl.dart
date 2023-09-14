@@ -5,7 +5,7 @@ class _CoroutineContextKeyImpl<E extends CoroutineContextElement>
 
 /// An empty coroutine context.
 class EmptyCoroutineContext implements CoroutineContext {
-  static const instance = EmptyCoroutineContext._();
+  static const I = EmptyCoroutineContext._();
 
   const EmptyCoroutineContext._();
 

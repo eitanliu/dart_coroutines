@@ -8,7 +8,7 @@ abstract class CoroutineContext {
   static const symbol = #CoroutineContext;
 
   /// An empty coroutine context.
-  static const CoroutineContext empty = EmptyCoroutineContext.instance;
+  static const CoroutineContext empty = EmptyCoroutineContext.I;
 
   /// Returns the element with the given [key] from this context or `null`.
   E? get<E extends CoroutineContextElement>(CoroutineContextKey<E> key);
@@ -49,7 +49,7 @@ abstract class CoroutineContextKey<E extends CoroutineContextElement> {
 
 /// An element of the [CoroutineContext]. An element of the coroutine context
 /// is a singleton context by itself.
-abstract class CoroutineContextElement implements CoroutineContext {
+abstract class CoroutineContextElement extends CoroutineContext {
   /// A key of this coroutine context element.
   CoroutineContextKey get key;
 
@@ -65,6 +65,6 @@ abstract class CoroutineContextElement implements CoroutineContext {
 
   @override
   CoroutineContext operator -(CoroutineContextKey key) {
-    return this.key == key ? EmptyCoroutineContext.instance : this;
+    return this.key == key ? EmptyCoroutineContext.I : this;
   }
 }

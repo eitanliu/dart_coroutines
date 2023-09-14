@@ -9,7 +9,7 @@ void main() {
 
     test('EmptyCoroutineContext Test', () {
       final context = CoroutineContext.empty;
-      expect(context, same(EmptyCoroutineContext.instance));
+      expect(context, same(EmptyCoroutineContext.I));
     });
   });
 }
