@@ -34,4 +34,6 @@ extension CoroutineScopeExt on CoroutineScope {
   }) {
     return coroutineZone.createTimer(Duration.zero, computation) as Job;
   }
+
+  CompletableJob get job => coroutineContext.get(Job.sKey) as CompletableJob;
 }

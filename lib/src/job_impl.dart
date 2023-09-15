@@ -1,6 +1,6 @@
 part of coroutines.job;
 
-abstract class JobSupport extends Job {
+abstract class CompletableJob extends Job {
   Completer completer = Completer();
 
   bool _isCancelled = false;
@@ -38,12 +38,65 @@ abstract class JobSupport extends Job {
   }
 }
 
-class JobImpl extends JobSupport {
+mixin DelegatingJobMixin on Job {
+  Job get _job;
+
+  // DelegatingJob(Job job) : _job = job;
+
   @override
-  final Job? parent = Zone.current.contextJob;
+  void cancelJob([CancellationException? cause]) {
+    return _job.cancelJob(cause);
+  }
+
+  @override
+  CancellationException getCancellationException() {
+    return _job.getCancellationException();
+  }
+
+  @override
+  bool get isActive => _job.isActive;
+
+  @override
+  bool get isCancelled => _job.isCancelled;
+
+  @override
+  bool get isCompleted => _job.isCancelled;
+
+  @override
+  Future<void> join() {
+    return _job.join();
+  }
+
+  @override
+  Job? get parent => _job.parent;
 }
 
-class JobTimer extends JobSupport implements Timer {
+class DelegatingJob extends Job with DelegatingJobMixin {
+  @override
+  final Job _job;
+
+  DelegatingJob(Job job) : _job = job;
+}
+
+class _JobImpl extends CompletableJob {
+  final Job? _parent;
+
+  @override
+  Job? get parent => _parent;
+
+  _JobImpl(Job? parent) : _parent = parent ?? Zone.current.contextJob;
+}
+
+class _SupervisorJobImpl extends _JobImpl {
+  _SupervisorJobImpl(Job? parent) : super(parent);
+
+  @override
+  bool childCancelled(cause) {
+    return false;
+  }
+}
+
+class JobTimer extends Job with DelegatingJobMixin implements Timer {
   /// The duration of the timer.
   final Duration _duration;
 
@@ -56,7 +109,9 @@ class JobTimer extends JobSupport implements Timer {
   /// is reset.
   late Timer _timer;
   ZoneDelegate delegate;
+  Zone self;
   Zone zone;
+  CoroutineScope scope;
 
   @override
   Job? get parent {
@@ -64,17 +119,36 @@ class JobTimer extends JobSupport implements Timer {
     return timer is Job ? timer as Job : null;
   }
 
-  JobTimer(this.zone, this.delegate, Duration duration, ZoneCallback callback)
-      : _duration = duration,
-        _callback = callback {
+  JobTimer(
+    this.self,
+    this.delegate,
+    this.zone,
+    Duration duration,
+    ZoneCallback callback,
+  )   : _duration = duration,
+        _callback = callback,
+        scope = CoroutineScope(zone.context + Job.job()) {
+    _timer = _createTimer();
+  }
+
+  JobTimer.ctx(
+    CoroutineContext context,
+    this.self,
+    this.delegate,
+    this.zone,
+    Duration duration,
+    ZoneCallback callback,
+  )   : _duration = duration,
+        _callback = callback,
+        scope = CoroutineScope(zone.context + context) {
     _timer = _createTimer();
   }
 
   _createTimer() => delegate.createTimer(zone, _duration, _timerCallback);
 
   _timerCallback() {
-    _callback();
-    completer.complete();
+    scope.coroutineZone.runGuarded(_callback);
+    scope.job.completer.complete();
   }
 
   /// Restarts the timer so that it counts down from its original duration
@@ -102,4 +176,7 @@ class JobTimer extends JobSupport implements Timer {
   /// not be strictly larger than previous values.
   @override
   int get tick => _timer.tick;
+
+  @override
+  Job get _job => scope.job;
 }

@@ -26,7 +26,7 @@ ZoneSpecification _createCoroutineZoneSpec(CoroutineScope scope) {
 Timer _createTimerHandler(Zone self, ZoneDelegate parent, Zone zone,
     Duration duration, void Function() f) {
   self.checkCancelled();
-  return JobTimer(zone, parent, duration, f);
+  return JobTimer(self, parent, zone, duration, f);
 }
 
 ZoneCallback<R> _registerCallbackHandler<R>(
