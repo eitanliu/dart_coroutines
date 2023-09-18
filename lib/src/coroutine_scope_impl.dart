@@ -28,10 +28,25 @@ class _CoroutineScopeImpl implements CoroutineScope {
 }
 
 extension CoroutineScopeExt on CoroutineScope {
+  // @pragma('dart2js:tryInline')
+  // @pragma("vm:prefer-inline")
   Job launch(
     FutureOr Function() computation, {
-    CoroutineContext? context,
+    CoroutineContext context = CoroutineContext.empty,
   }) {
+    final parent = coroutineContext - Job.sKey;
+    final scope = CoroutineScope(parent + context);
+    final zone = scope.coroutineZone;
+    final job = scope.job;
+    // zone.createTimer(Duration.zero, () {
+    zone.runGuarded(() {
+      try {
+        job.completer.complete(computation());
+      } catch (e, s) {
+        job.completer.completeError(e, s);
+      }
+    });
+    return job;
     return coroutineZone.createTimer(Duration.zero, computation) as Job;
   }
 

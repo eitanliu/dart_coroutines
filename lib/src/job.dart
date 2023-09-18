@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:coroutines/core.dart';
 import 'package:coroutines/coroutine_scope.dart';
 
+part 'job_delegate.dart';
 part 'job_impl.dart';
 
 abstract class Job extends CoroutineContextElement {

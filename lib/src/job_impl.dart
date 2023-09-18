@@ -38,53 +38,18 @@ abstract class CompletableJob extends Job {
   }
 }
 
-mixin DelegatingJobMixin on Job {
-  Job get _job;
-
-  // DelegatingJob(Job job) : _job = job;
-
-  @override
-  void cancelJob([CancellationException? cause]) {
-    return _job.cancelJob(cause);
-  }
-
-  @override
-  CancellationException getCancellationException() {
-    return _job.getCancellationException();
-  }
-
-  @override
-  bool get isActive => _job.isActive;
-
-  @override
-  bool get isCancelled => _job.isCancelled;
-
-  @override
-  bool get isCompleted => _job.isCancelled;
-
-  @override
-  Future<void> join() {
-    return _job.join();
-  }
-
-  @override
-  Job? get parent => _job.parent;
-}
-
-class DelegatingJob extends Job with DelegatingJobMixin {
-  @override
-  final Job _job;
-
-  DelegatingJob(Job job) : _job = job;
-}
-
 class _JobImpl extends CompletableJob {
   final Job? _parent;
 
   @override
   Job? get parent => _parent;
 
-  _JobImpl(Job? parent) : _parent = parent ?? Zone.current.contextJob;
+  _JobImpl(Job? parent) : _parent = parent ?? _parentJob();
+
+  static Job? _parentJob() {
+    final context = Zone.current[CoroutineContext.symbol] as CoroutineContext?;
+    return context?.get(Job.sKey);
+  }
 }
 
 class _SupervisorJobImpl extends _JobImpl {
@@ -128,6 +93,7 @@ class JobTimer extends Job with DelegatingJobMixin implements Timer {
   )   : _duration = duration,
         _callback = callback,
         scope = CoroutineScope(zone.context + Job.job()) {
+    print("job timer create");
     _timer = _createTimer();
   }
 
@@ -147,7 +113,9 @@ class JobTimer extends Job with DelegatingJobMixin implements Timer {
   _createTimer() => delegate.createTimer(zone, _duration, _timerCallback);
 
   _timerCallback() {
+    print("job timer begin");
     scope.coroutineZone.runGuarded(_callback);
+    print("job timer end");
     scope.job.completer.complete();
   }
 

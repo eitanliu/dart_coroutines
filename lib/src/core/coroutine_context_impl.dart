@@ -47,6 +47,11 @@ class EmptyCoroutineContext implements CoroutineContext {
 /// this class is not exposed, but is hidden inside implementations
 /// this is a left-biased list, so that `plus` works naturally
 class CombinedContext extends CoroutineContext {
+  final CoroutineContext left;
+  final CoroutineContextElement element;
+
+  CombinedContext(this.left, this.element);
+
   @override
   E? get<E extends CoroutineContextElement>(CoroutineContextKey<E> key) {
     var cur = this;
@@ -66,11 +71,6 @@ class CombinedContext extends CoroutineContext {
   R fold<R>(R initial, FoldOperation<R> operation) {
     return operation(left.fold(initial, operation), element);
   }
-
-  final CoroutineContext left;
-  final CoroutineContextElement element;
-
-  CombinedContext(this.left, this.element);
 
   @override
   CoroutineContext operator -(
