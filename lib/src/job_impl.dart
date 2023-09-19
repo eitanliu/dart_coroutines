@@ -8,16 +8,18 @@ abstract class CompletableJob extends Job {
 
   @override
   void cancelJob([CancellationException? cause]) {
-    _cancellationException = cause;
+    _cancellationException = cause ?? getCancellationException();
     _isCancelled = true;
-    completer.completeError(getCancellationException());
+    if (isActive) {
+      completer.completeError(getCancellationException());
+    }
   }
 
   @override
   bool get isActive => !completer.isCompleted;
 
   @override
-  bool get isCancelled => parent?.isCancelled == true ? true : _isCancelled;
+  bool get isCancelled => _isCancelled ? true : parentCancelled();
 
   @override
   bool get isCompleted => completer.isCompleted;
@@ -27,6 +29,16 @@ abstract class CompletableJob extends Job {
     return completer.future.then(thenIgnore, onError: thenIgnore);
   }
 
+  bool parentCancelled() {
+    Job? p = parent;
+    while (true) {
+      if (p == null) break;
+      if (p.isCancelled == true) return true;
+      p = p.parent;
+    }
+    return false;
+  }
+
   bool childCancelled(cause) {
     if (cause is CancellationException) return true;
     return false;
@@ -34,7 +46,22 @@ abstract class CompletableJob extends Job {
 
   @override
   CancellationException getCancellationException() {
-    return _cancellationException ?? CancellationException("Job was cancelled");
+    return parentCancellationException() ?? _cancellationException ??
+        CancellationException("Job was cancelled", StackTrace.current);
+  }
+
+  CancellationException? parentCancellationException() {
+    Job? p = this;
+    while (true) {
+      if (p is! CompletableJob) break;
+      final exp = p._cancellationException;
+      if (exp != null) {
+        // print("parentCancellationException ${exp.stackTrace.toString()}");
+        return exp;
+      }
+      p = p.parent;
+    }
+    return null;
   }
 
   void forEachJob(bool Function(Job job) action) {

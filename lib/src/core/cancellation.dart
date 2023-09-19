@@ -1,5 +1,13 @@
 import 'dart:core';
 
 class CancellationException extends StateError {
-  CancellationException([super.message = 'Coroutines CancellationException']);
+  final StackTrace _stackTrace;
+
+  CancellationException([
+    super.message = 'Coroutines CancellationException',
+    StackTrace? stackTrace,
+  ]) : _stackTrace = stackTrace ?? StackTrace.current;
+
+  @override
+  StackTrace? get stackTrace => _stackTrace;
 }

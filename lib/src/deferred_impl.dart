@@ -15,11 +15,18 @@ class DeferredImpl<T> extends AbstractDeferred<T> {
 
   DeferredImpl(Job? parent, [Completer<T>? completer])
       : _parent = parent ?? _parentJob(),
-        _completer = completer ?? Completer();
+        _completer = completer ?? Completer.sync();
 
   static Job? _parentJob() {
     final context = Zone.current[CoroutineContext.symbol] as CoroutineContext?;
     return context?.get(Job.sKey);
+  }
+
+  @override
+  void cancelJob([CancellationException? cause]) {
+    // TODO: implement cancelJob
+    print("deferred cancelJob");
+    super.cancelJob(cause);
   }
 }
 
@@ -31,7 +38,7 @@ class DelegatingDeferred<T> extends AbstractDeferred<T>
 
   DelegatingDeferred(CompletableJob job)
       : jobDelegate = job,
-        _completer = Completer.sync() {
+        _completer = Completer() {
     jobDelegate.completer.future.then(
       (value) {
         _completer.complete(value);

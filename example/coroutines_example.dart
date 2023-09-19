@@ -11,15 +11,19 @@ void main() async {
 Job suspendZone() {
   return supervisorZone(() async {
     print("supervisorZone start");
-    final job = launch(() async {
+    final job = Job.job();
+    launch(context: job, () async {
       print("launch1 run");
       await launch(() async {
         print("launch2 run");
         final deferred = defer(() async => 1);
         print("deferred run");
+        job.cancelJob();
         // deferred.cancelJob();
         final deferredRes = await deferred.future;
         print("deferred await $deferredRes");
+        job.cancelJob();
+        deferred.cancelJob();
         await delay1();
         final async1Res = await async1();
         print("async1Res await $async1Res");

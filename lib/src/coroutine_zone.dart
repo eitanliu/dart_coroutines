@@ -62,8 +62,8 @@ ZoneSpecification _createCoroutineZoneSpec(CoroutineContext context) {
 /// [zone] 当前所在的 Zone
 void _handleUncaughtError(Zone self, ZoneDelegate parent, Zone zone,
     Object error, StackTrace stackTrace) {
-  logcat("UncaughtErrorCurr ${Zone.current}${Zone.current.hashCode}");
-  logcat("UncaughtErrorZone $zone${zone.hashCode}");
+  logcat("UncaughtErrorCurr ${Zone.current.zoneName}");
+  logcat("UncaughtErrorZone ${zone.zoneName}");
   final job = zone.coroutineJob;
   if (job == null) return parent.handleUncaughtError(zone, error, stackTrace);
   // TODO: UncaughtErrorElement
@@ -76,6 +76,7 @@ void _handleUncaughtError(Zone self, ZoneDelegate parent, Zone zone,
       throw error;
     }
   } else {
+    logcat("err $error, $stackTrace");
     parent.handleUncaughtError(zone, error, stackTrace);
   }
 }
@@ -85,11 +86,25 @@ ZoneCallback<R> _registerCallbackHandler<R>(
   nf() {
     self.ensureActive();
     final context = zone.checkCoroutine();
+    final job = zone.checkCoroutineJob();
 
     return CoroutineZone(context).run(() {
+      final zone = Zone.current;
+      final context = zone.checkCoroutine();
+      final job = zone.checkCoroutineJob();
       try {
+        print("job isCancelled ${job.isCancelled}");
+
+        if (job.isCancelled) {
+          final ex = job.getCancellationException();
+          // print("exCancelled ${ ex.stackTrace.toString()}");
+          throw ex;
+        }
         final result = f();
         return result;
+      } on CancellationException catch (e) {
+        job.childCancelled(e);
+        rethrow;
       } catch (e, s) {
         final job = zone.coroutineJob?.forEachJob((job) => false);
         rethrow;
@@ -146,4 +161,6 @@ extension CoroutineZoneExt on Zone {
     // if(job is! JOB) throw StateError(message)
     return job as JOB;
   }
+
+  String get zoneName => "$runtimeType-$hashCode";
 }

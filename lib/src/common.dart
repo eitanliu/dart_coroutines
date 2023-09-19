@@ -16,10 +16,15 @@ Job launch(
   final zone = CoroutineZone(context);
   final job = zone.checkCoroutineJob();
   // zone.createTimer(Duration.zero, () {
+  logcat("launch complete");
   zone.runGuarded(() {
     try {
+      logcat("launch complete start");
       job.completer.complete(computation());
+      logcat("launch complete end");
     } catch (e, s) {
+      logcat("launch completeError");
+      // if(!job.completer.isCompleted)
       job.completer.completeError(e, s);
     }
   });
@@ -35,8 +40,11 @@ Deferred<T> defer<T>(
   Job? job = context.get(Job.sKey);
   if (job == null) {
     job = Deferred<T>(parentZone.coroutineJob);
+    logcat("defer job $job");
   } else if (job is CompletableJob) {
     job = Deferred<T>.delegate(job);
+
+    logcat("defer delegate job $job");
   }
   if (job is! Deferred<T>) {
     throw StateError('In defer, Job must be Deferred');
@@ -49,6 +57,7 @@ Deferred<T> defer<T>(
     try {
       deferred.completer.complete(computation());
     } catch (e, s) {
+      // if(!deferred.completer.isCompleted)
       deferred.completer.completeError(e, s);
     }
   });
