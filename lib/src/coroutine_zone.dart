@@ -8,9 +8,6 @@ import '_internal.dart';
 import 'coroutine_exception_handler.dart';
 import 'job.dart';
 
-part 'coroutine_scope.dart';
-part 'coroutine_scope_impl.dart';
-
 Job supervisorZone(FutureOr Function() computation) {
   final zone = SupervisorZone(CoroutineContext.empty);
   final job = zone.checkCoroutineJob();
@@ -94,7 +91,6 @@ ZoneCallback<R> _registerCallbackHandler<R>(
         final result = f();
         return result;
       } catch (e, s) {
-        final zone = Zone.current;
         final job = zone.coroutineJob?.forEachJob((job) => false);
         rethrow;
       }

@@ -58,7 +58,7 @@ class _JobImpl extends CompletableJob {
 
   _JobImpl(Job? parent, [Completer? completer])
       : _parent = parent ?? _parentJob(),
-        _completer = completer ?? Completer();
+        _completer = completer ?? Completer.sync();
 
   static Job? _parentJob() {
     final context = Zone.current[CoroutineContext.symbol] as CoroutineContext?;
@@ -91,7 +91,10 @@ class JobTimer extends Job with DelegatingJobMixin implements Timer {
   ZoneDelegate delegate;
   Zone self;
   Zone zone;
-  CoroutineScope scope;
+  final CoroutineContext coroutineContext;
+  late Zone coroutineZone;
+
+  CompletableJob get coroutineJob => coroutineZone.coroutineJob!;
 
   @override
   Job? get parent {
@@ -107,7 +110,9 @@ class JobTimer extends Job with DelegatingJobMixin implements Timer {
     ZoneCallback callback,
   )   : _duration = duration,
         _call = callback,
-        scope = CoroutineScope(zone.checkCoroutine() + Job.job()) {
+        coroutineContext =
+            newCoroutineContext(zone.checkCoroutine(), CoroutineContext.empty) {
+    coroutineZone = CoroutineZone(coroutineContext);
     logcat("JobTimer new ${_timerCallback.hashCode} old ${_call.hashCode}");
     _timer = _createTimer();
   }
@@ -121,7 +126,9 @@ class JobTimer extends Job with DelegatingJobMixin implements Timer {
     ZoneCallback callback,
   )   : _duration = duration,
         _call = callback,
-        scope = CoroutineScope(zone.checkCoroutine() + context) {
+        coroutineContext =
+            newCoroutineContext(zone.checkCoroutine(), CoroutineContext.empty) {
+    coroutineZone = CoroutineZone(coroutineContext);
     _timer = _createTimer();
   }
 
@@ -129,9 +136,9 @@ class JobTimer extends Job with DelegatingJobMixin implements Timer {
 
   _timerCallback() {
     logcat("JobTimer start ${_timerCallback.hashCode}");
-    scope.coroutineZone.runGuarded(_call);
+    coroutineZone.runGuarded(_call);
     logcat("JobTimer end ${_timerCallback.hashCode}");
-    scope.job.completer.complete();
+    coroutineJob.completer.complete();
   }
 
   /// Restarts the timer so that it counts down from its original duration
@@ -161,5 +168,5 @@ class JobTimer extends Job with DelegatingJobMixin implements Timer {
   int get tick => _timer.tick;
 
   @override
-  Job get jobDelegate => scope.job;
+  Job get jobDelegate => coroutineJob;
 }

@@ -6,8 +6,8 @@ import 'job.dart';
 
 void thenIgnore(e) {}
 
-void Function(Object? object) logcat = print;
-// void Function(Object? object) logcat = _ignorePrint;
+void logcat(Object? object) => print(object);
+// void logcat(Object? object) => _ignorePrint(object);
 void _ignorePrint(Object? object) {}
 
 CoroutineContext newCoroutineContext(
