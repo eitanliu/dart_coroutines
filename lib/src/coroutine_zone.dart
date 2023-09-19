@@ -1,50 +1,123 @@
-part of coroutines.scope;
+library coroutines.zone;
 
-Zone _createCoroutineZone(CoroutineScope scope) {
-  final spec = _createCoroutineZoneSpec(scope);
-  final values = _createCoroutineZoneValues(scope);
+import 'dart:async';
+
+import 'package:coroutines/core.dart';
+
+import '_internal.dart';
+import 'coroutine_exception_handler.dart';
+import 'job.dart';
+
+part 'coroutine_scope.dart';
+
+part 'coroutine_scope_impl.dart';
+
+// ignore: non_constant_identifier_names
+Zone CourutineZone(CoroutineContext context) {
+  final job = context.get(Job.sKey);
+  context = job is CompletableJob ? context : context + Job.job();
+  return _createCoroutineZone(context);
+}
+
+Zone _createCoroutineZone(CoroutineContext context) {
+  final spec = _createCoroutineZoneSpec(context);
+  final values = _createCoroutineZoneValues(context);
   return Zone.current.fork(specification: spec, zoneValues: values);
 }
 
-Map<Object?, Object?> _createCoroutineZoneValues(CoroutineScope scope) {
-  final context = scope.coroutineContext;
+Map<Object?, Object?> _createCoroutineZoneValues(CoroutineContext context) {
   return {
     CoroutineContext.symbol: context,
   };
 }
 
-ZoneSpecification _createCoroutineZoneSpec(CoroutineScope scope) {
+ZoneSpecification _createCoroutineZoneSpec(CoroutineContext context) {
   return ZoneSpecification(
-    createTimer: _createTimerHandler,
+    handleUncaughtError: _handleUncaughtError,
     registerCallback: _registerCallbackHandler,
+    // scheduleMicrotask: _scheduleMicrotask,
+    // createTimer: _createTimerHandler,
   );
 }
 
 /// [self] 创建函数的 Zone
 /// [parent] 上级 Zone 代理
 /// [zone] 当前所在的 Zone
-Timer _createTimerHandler(Zone self, ZoneDelegate parent, Zone zone,
-    Duration duration, void Function() f) {
-  self.checkCancelled();
-  return JobTimer(self, parent, zone, duration, f);
+void _handleUncaughtError(Zone self, ZoneDelegate parent, Zone zone,
+    Object error, StackTrace stackTrace) {
+  logcat("UncaughtErrorCurr ${Zone.current}${Zone.current.hashCode}");
+  logcat("UncaughtErrorZone $zone${zone.hashCode}");
+  final job = zone.coroutineJob;
+  if (job == null) return parent.handleUncaughtError(zone, error, stackTrace);
+  // TODO: UncaughtErrorElement
+  final handler = zone.coroutineContext?.get(CoroutineExceptionHandler.sKey);
+  if (handler != null) {
+    try {
+      handler.handleUncaughtError(self, parent, zone, error, stackTrace);
+    } on CancellationException {
+      logcat("err $error, $stackTrace");
+      throw error;
+    }
+  } else {
+    parent.handleUncaughtError(zone, error, stackTrace);
+  }
 }
 
 ZoneCallback<R> _registerCallbackHandler<R>(
     Zone self, ZoneDelegate parent, Zone zone, R Function() f) {
-  return () {
-    self.checkCancelled();
-    return parent.registerCallback(zone, f)();
-  };
+  nf() {
+    self.ensureActive();
+    final context = zone.checkCoroutine();
+    final result = CourutineZone(context).run(f);
+    return result;
+  }
+
+  return parent.registerCallback(zone, nf);
+}
+
+void _scheduleMicrotask(
+    Zone self, ZoneDelegate parent, Zone zone, void Function() f) {
+  nf() {
+    self.ensureActive();
+    logcat("_scheduleMicrotask run start ${nf.hashCode}");
+    f();
+    logcat("_scheduleMicrotask run end ${nf.hashCode}");
+  }
+
+  logcat("_scheduleMicrotask new ${nf.hashCode}, old ${f.hashCode}");
+
+  parent.scheduleMicrotask(zone, nf);
+}
+
+Timer _createTimerHandler(Zone self, ZoneDelegate parent, Zone zone,
+    Duration duration, void Function() f) {
+  self.ensureActive();
+  return JobTimer(self, parent, zone, duration, f);
 }
 
 extension CoroutineZoneExt on Zone {
-  CoroutineContext get context => this[CoroutineContext.symbol];
+  CoroutineContext? get coroutineContext => this[CoroutineContext.symbol];
 
-  Job? get contextJob => context.get(Job.sKey);
+  CompletableJob? get coroutineJob =>
+      coroutineContext?.get(Job.sKey) as CompletableJob?;
 
-  void checkCancelled() {
-    final job = contextJob;
+  void ensureActive() {
+    final job = coroutineJob;
     if (job == null) return;
-    if (job.isCancelled == true) throw job.getCancellationException();
+    if (job.isCancelled == true || !job.isActive) {
+      throw job.getCancellationException();
+    }
+  }
+
+  CoroutineContext checkCoroutine() {
+    final context = coroutineContext;
+    assert(context != null, "Must run in CourutineZone");
+    return context!;
+  }
+
+  CompletableJob checkCoroutineJob() {
+    final job = coroutineJob;
+    assert(job != null, "Must run in CourutineZone");
+    return job!;
   }
 }

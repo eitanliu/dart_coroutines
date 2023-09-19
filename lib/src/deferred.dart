@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '_internal.dart';
 import 'job.dart';
 
 abstract class Deferred<T> extends Job implements Future<T> {
@@ -25,5 +26,5 @@ abstract class Deferred<T> extends Job implements Future<T> {
       future.timeout(timeLimit, onTimeout: onTimeout);
 
   @override
-  Future join() => future;
+  Future<void> join() => future.then(thenIgnore, onError: thenIgnore);
 }

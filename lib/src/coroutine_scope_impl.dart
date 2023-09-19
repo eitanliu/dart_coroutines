@@ -1,4 +1,4 @@
-part of coroutines.scope;
+part of coroutines.zone;
 
 mixin CoroutineCurrentScopeMixin implements CoroutineScope {
   @override
@@ -21,10 +21,10 @@ class _CoroutineScopeImpl implements CoroutineScope {
   _CoroutineScopeImpl(CoroutineContext context) : _coroutineContext = context;
 
   @override
-  CoroutineContext get coroutineContext => _coroutineContext;
+  CoroutineContext get coroutineContext => coroutineZone.coroutineContext!;
 
   @override
-  late Zone coroutineZone = _createCoroutineZone(this);
+  late Zone coroutineZone = CourutineZone(_coroutineContext);
 }
 
 extension CoroutineScopeExt on CoroutineScope {
