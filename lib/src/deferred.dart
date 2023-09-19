@@ -1,10 +1,24 @@
+library coroutines.deferred;
+
 import 'dart:async';
+
+import 'package:coroutines/core.dart';
 
 import '_internal.dart';
 import 'job.dart';
 
-abstract class Deferred<T> extends Job implements Future<T> {
-  abstract Future<T> future;
+part 'deferred_impl.dart';
+
+abstract class Deferred<T> implements CompletableJob, Future<T> {
+  factory Deferred(Job? parent, [Completer<T>? completer]) =>
+      DeferredImpl<T>(parent, completer);
+  Future<T> get future;
+
+  factory Deferred.delegate(CompletableJob job) => DelegatingDeferred(job);
+}
+
+abstract class AbstractDeferred<T> extends CompletableJob
+    implements Deferred<T> {
 
   @override
   Stream<T> asStream() => future.asStream();

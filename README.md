@@ -29,7 +29,43 @@ TODO: Include short and useful examples for package users. Add longer examples
 to `/example` folder. 
 
 ```dart
-const like = 'sample';
+void main() async {
+  await supervisorZone(() async {
+    print("supervisorZone start");
+    final job = launch(() async {
+      print("launch1 run");
+      await launch(() async {
+        print("launch2 run");
+        final deferred = defer(() async => 1);
+        print("deferred run");
+        // deferred.cancelJob();
+        final deferredRes = await deferred.future;
+        print("deferred await $deferredRes");
+      }).join();
+      print("launch2 join await");
+    });
+    // throw 111;
+    print("launch1 join");
+    await job.join();
+    print("launch1 join await");
+    print("supervisorZone end");
+  }).join();
+
+  print("main end");
+}
+```
+Output result.
+```text
+supervisorZone start
+launch1 run
+launch2 run
+deferred run
+launch1 join
+deferred await 1
+launch2 join await
+launch1 join await
+supervisorZone end
+main end
 ```
 
 ## Additional information

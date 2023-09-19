@@ -24,7 +24,7 @@ class _CoroutineScopeImpl implements CoroutineScope {
   CoroutineContext get coroutineContext => coroutineZone.coroutineContext!;
 
   @override
-  late Zone coroutineZone = CourutineZone(_coroutineContext);
+  late Zone coroutineZone = CoroutineZone(_coroutineContext);
 }
 
 extension CoroutineScopeExt on CoroutineScope {
@@ -34,8 +34,9 @@ extension CoroutineScopeExt on CoroutineScope {
     FutureOr Function() computation, {
     CoroutineContext context = CoroutineContext.empty,
   }) {
-    final parent = coroutineContext - Job.sKey;
-    final scope = CoroutineScope(parent + context);
+    final parentContext = coroutineContext;
+    context = newCoroutineContext(parentContext, context);
+    final scope = CoroutineScope(context);
     final zone = scope.coroutineZone;
     final job = scope.job;
     // zone.createTimer(Duration.zero, () {

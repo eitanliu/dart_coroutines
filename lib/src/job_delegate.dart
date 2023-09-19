@@ -1,39 +1,39 @@
 part of coroutines.job;
 
 mixin DelegatingJobMixin on Job {
-  Job get _job;
+  Job get jobDelegate;
 
   @override
   void cancelJob([CancellationException? cause]) {
-    return _job.cancelJob(cause);
+    return jobDelegate.cancelJob(cause);
   }
 
   @override
   CancellationException getCancellationException() {
-    return _job.getCancellationException();
+    return jobDelegate.getCancellationException();
   }
 
   @override
-  bool get isActive => _job.isActive;
+  bool get isActive => jobDelegate.isActive;
 
   @override
-  bool get isCancelled => _job.isCancelled;
+  bool get isCancelled => jobDelegate.isCancelled;
 
   @override
-  bool get isCompleted => _job.isCancelled;
+  bool get isCompleted => jobDelegate.isCancelled;
 
   @override
   Future<void> join() {
-    return _job.join();
+    return jobDelegate.join();
   }
 
   @override
-  Job? get parent => _job.parent;
+  Job? get parent => jobDelegate.parent;
 }
 
 class DelegatingJob extends Job with DelegatingJobMixin {
   @override
-  final Job _job;
+  final Job jobDelegate;
 
-  DelegatingJob(Job job) : _job = job;
+  DelegatingJob(Job job) : jobDelegate = job;
 }

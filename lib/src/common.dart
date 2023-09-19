@@ -1,8 +1,9 @@
 import 'dart:async';
 
-import 'package:coroutines/core.dart';
-import 'package:coroutines/coroutines.dart';
-
+import '_internal.dart';
+import 'core/coroutine_context.dart';
+import 'coroutine_zone.dart';
+import 'deferred.dart';
 import 'job.dart';
 
 Job launch(
@@ -11,8 +12,8 @@ Job launch(
 }) {
   final parentZone = Zone.current;
   final parentContext = parentZone.checkCoroutine();
-  context = _newContext(parentContext, context);
-  final zone = CourutineZone(context);
+  context = newCoroutineContext(parentContext, context);
+  final zone = CoroutineZone(context);
   final job = zone.checkCoroutineJob();
   // zone.createTimer(Duration.zero, () {
   zone.runGuarded(() {
@@ -25,12 +26,31 @@ Job launch(
   return job;
 }
 
-CoroutineContext _newContext(
-  CoroutineContext parentContext,
-  CoroutineContext context,
-) {
-  parentContext = parentContext - Job.sKey;
-  final job = context.get(Job.sKey);
-  context = job is CompletableJob ? context : context + Job.job();
-  return parentContext + context;
+Deferred<T> defer<T>(
+  FutureOr<T> Function() computation, {
+  CoroutineContext context = CoroutineContext.empty,
+}) {
+  final parentZone = Zone.current;
+  final parentContext = parentZone.checkCoroutine();
+  Job? job = context.get(Job.sKey);
+  if (job == null) {
+    job = Deferred<T>(parentZone.coroutineJob);
+  } else if (job is CompletableJob) {
+    job = Deferred<T>.delegate(job);
+  }
+  if (job is! Deferred<T>) {
+    throw StateError('In defer, Job must be Deferred');
+  }
+  final deferred = job;
+  context = newCoroutineContext(parentContext, context + deferred);
+
+  final zone = CoroutineZone(context);
+  zone.runGuarded(() {
+    try {
+      deferred.completer.complete(computation());
+    } catch (e, s) {
+      deferred.completer.completeError(e, s);
+    }
+  });
+  return deferred;
 }

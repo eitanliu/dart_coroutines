@@ -36,6 +36,14 @@ abstract class CompletableJob extends Job {
   CancellationException getCancellationException() {
     return _cancellationException ?? CancellationException("Job was cancelled");
   }
+
+  void forEachJob(bool Function(Job job) action) {
+    Job? job = this;
+    while (job != null) {
+      if (!action(job)) break;
+      job = job.parent;
+    }
+  }
 }
 
 class _JobImpl extends CompletableJob {
@@ -153,5 +161,5 @@ class JobTimer extends Job with DelegatingJobMixin implements Timer {
   int get tick => _timer.tick;
 
   @override
-  Job get _job => scope.job;
+  Job get jobDelegate => scope.job;
 }

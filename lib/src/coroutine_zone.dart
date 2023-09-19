@@ -9,13 +9,33 @@ import 'coroutine_exception_handler.dart';
 import 'job.dart';
 
 part 'coroutine_scope.dart';
-
 part 'coroutine_scope_impl.dart';
 
+Job supervisorZone(FutureOr Function() computation) {
+  final zone = SupervisorZone(CoroutineContext.empty);
+  final job = zone.checkCoroutineJob();
+  // zone.createTimer(Duration.zero, () {
+  zone.runGuarded(() {
+    try {
+      job.completer.complete(computation());
+    } catch (e, s) {
+      job.completer.completeError(e, s);
+    }
+  });
+  return job;
+}
+
 // ignore: non_constant_identifier_names
-Zone CourutineZone(CoroutineContext context) {
+Zone CoroutineZone(CoroutineContext context) {
   final job = context.get(Job.sKey);
   context = job is CompletableJob ? context : context + Job.job();
+  return _createCoroutineZone(context);
+}
+
+// ignore: non_constant_identifier_names
+Zone SupervisorZone(CoroutineContext context) {
+  final job = context.get(Job.sKey);
+  context = job is CompletableJob ? context : context + Job.supervisor();
   return _createCoroutineZone(context);
 }
 
@@ -68,8 +88,17 @@ ZoneCallback<R> _registerCallbackHandler<R>(
   nf() {
     self.ensureActive();
     final context = zone.checkCoroutine();
-    final result = CourutineZone(context).run(f);
-    return result;
+
+    return CoroutineZone(context).run(() {
+      try {
+        final result = f();
+        return result;
+      } catch (e, s) {
+        final zone = Zone.current;
+        final job = zone.coroutineJob?.forEachJob((job) => false);
+        rethrow;
+      }
+    });
   }
 
   return parent.registerCallback(zone, nf);
@@ -104,20 +133,21 @@ extension CoroutineZoneExt on Zone {
   void ensureActive() {
     final job = coroutineJob;
     if (job == null) return;
-    if (job.isCancelled == true || !job.isActive) {
+    if (job.isCancelled == true) {
       throw job.getCancellationException();
     }
   }
 
   CoroutineContext checkCoroutine() {
     final context = coroutineContext;
-    assert(context != null, "Must run in CourutineZone");
+    assert(context != null, "Must run in CoroutineZone");
     return context!;
   }
 
-  CompletableJob checkCoroutineJob() {
+  JOB checkCoroutineJob<JOB extends CompletableJob>() {
     final job = coroutineJob;
-    assert(job != null, "Must run in CourutineZone");
-    return job!;
+    assert(job != null, "Must run in CoroutineZone");
+    // if(job is! JOB) throw StateError(message)
+    return job as JOB;
   }
 }
