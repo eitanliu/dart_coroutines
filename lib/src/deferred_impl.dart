@@ -22,12 +22,6 @@ class DeferredImpl<T> extends AbstractDeferred<T> {
     return context?.get(Job.sKey);
   }
 
-  @override
-  void cancelJob([CancellationException? cause]) {
-    // TODO: implement cancelJob
-    print("deferred cancelJob");
-    super.cancelJob(cause);
-  }
 }
 
 class DelegatingDeferred<T> extends AbstractDeferred<T>
@@ -38,7 +32,7 @@ class DelegatingDeferred<T> extends AbstractDeferred<T>
 
   DelegatingDeferred(CompletableJob job)
       : jobDelegate = job,
-        _completer = Completer() {
+        _completer = Completer.sync() {
     jobDelegate.completer.future.then(
       (value) {
         _completer.complete(value);

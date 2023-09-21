@@ -6,7 +6,22 @@ import 'package:coroutines/core.dart';
 
 import '_internal.dart';
 import 'coroutine_exception_handler.dart';
+import 'coroutine_stack_trace.dart';
 import 'job.dart';
+
+Job coroutineZone(FutureOr Function() computation) {
+  final zone = CoroutineZone(CoroutineContext.empty);
+  final job = zone.checkCoroutineJob();
+  // zone.createTimer(Duration.zero, () {
+  zone.runGuarded(() {
+    try {
+      job.completer.complete(computation());
+    } catch (e, s) {
+      job.completer.completeError(e, s);
+    }
+  });
+  return job;
+}
 
 Job supervisorZone(FutureOr Function() computation) {
   final zone = SupervisorZone(CoroutineContext.empty);
@@ -43,73 +58,81 @@ Zone _createCoroutineZone(CoroutineContext context) {
 }
 
 Map<Object?, Object?> _createCoroutineZoneValues(CoroutineContext context) {
+  final stackTrace = context.get(CoroutineStackTrace.sKey);
   return {
     CoroutineContext.symbol: context,
+    if (stackTrace != null) CoroutineStackTrace.sKey: stackTrace,
   };
 }
 
 ZoneSpecification _createCoroutineZoneSpec(CoroutineContext context) {
   return ZoneSpecification(
     handleUncaughtError: _handleUncaughtError,
+    run: _run,
     registerCallback: _registerCallbackHandler,
     // scheduleMicrotask: _scheduleMicrotask,
     // createTimer: _createTimerHandler,
   );
 }
 
-/// [self] 创建函数的 Zone
-/// [parent] 上级 Zone 代理
-/// [zone] 当前所在的 Zone
+/// [self] 自身所在的 Zone
+/// [parent] 上级 Zone 代理相当于 [Zone.current]
+/// [zone] 待处里函数的 Zone
 void _handleUncaughtError(Zone self, ZoneDelegate parent, Zone zone,
     Object error, StackTrace stackTrace) {
-  logcat("UncaughtErrorCurr ${Zone.current.zoneName}");
-  logcat("UncaughtErrorZone ${zone.zoneName}");
-  final job = zone.coroutineJob;
-  if (job == null) return parent.handleUncaughtError(zone, error, stackTrace);
-  // TODO: UncaughtErrorElement
+  logcat(
+    "UncaughtErrorZone curr ${Zone.current.zoneName}, "
+    "${Zone.current.coroutineJob?.isCompleted}",
+  );
+  logcat(
+    "UncaughtErrorZone self ${self.zoneName}, "
+    "${self.coroutineJob?.isCompleted}",
+  );
+  logcat(
+    "UncaughtErrorZone zone ${zone.zoneName}, "
+    "${zone.coroutineJob?.isCompleted}",
+  );
+  final job = self.checkCoroutineJob();
   final handler = zone.coroutineContext?.get(CoroutineExceptionHandler.sKey);
-  if (handler != null) {
-    try {
-      handler.handleUncaughtError(self, parent, zone, error, stackTrace);
-    } on CancellationException {
-      logcat("err $error, $stackTrace");
-      throw error;
+
+  forEachZone(zone: self, (zone) {
+    final treeJob = zone.coroutineJob;
+    logcat(
+      "UncaughtErrorJob Tree ${zone.zoneName}, ${treeJob?.isCompleted}",
+    );
+  });
+  if (error is CancellationException) {
+    final cancelled = job.childCancelled(error);
+    logcat("UncaughtErrorJob canceled $cancelled ${job.isCompleted}");
+    if (cancelled) {
+      logcat("Cancellation Trace ${error.stackTrace}");
+      parent.handleUncaughtError(zone, error, stackTrace);
+    } else {
+      // logcat("err $error ${error.hashCode}");
+      logcat("Cancellation Trace ${error.stackTrace}");
+      // parent.handleUncaughtError(zone, error, stackTrace);
     }
+  } else if (handler != null) {
+    handler.handleUncaughtError(self, parent, zone, error, stackTrace);
   } else {
-    logcat("err $error, $stackTrace");
+    // logcat("err $error ${error.hashCode}");
+    // logcat("$stackTrace");
     parent.handleUncaughtError(zone, error, stackTrace);
   }
+}
+
+R _run<R>(Zone self, ZoneDelegate parent, Zone zone, R Function() f) {
+  zone.ensureActive('run');
+  return parent.run(zone, f);
 }
 
 ZoneCallback<R> _registerCallbackHandler<R>(
     Zone self, ZoneDelegate parent, Zone zone, R Function() f) {
   nf() {
-    self.ensureActive();
-    final context = zone.checkCoroutine();
-    final job = zone.checkCoroutineJob();
+    zone.ensureActive('callback');
 
-    return CoroutineZone(context).run(() {
-      final zone = Zone.current;
-      final context = zone.checkCoroutine();
-      final job = zone.checkCoroutineJob();
-      try {
-        print("job isCancelled ${job.isCancelled}");
-
-        if (job.isCancelled) {
-          final ex = job.getCancellationException();
-          // print("exCancelled ${ ex.stackTrace.toString()}");
-          throw ex;
-        }
-        final result = f();
-        return result;
-      } on CancellationException catch (e) {
-        job.childCancelled(e);
-        rethrow;
-      } catch (e, s) {
-        final job = zone.coroutineJob?.forEachJob((job) => false);
-        rethrow;
-      }
-    });
+    final result = f();
+    return result;
   }
 
   return parent.registerCallback(zone, nf);
@@ -133,34 +156,4 @@ Timer _createTimerHandler(Zone self, ZoneDelegate parent, Zone zone,
     Duration duration, void Function() f) {
   self.ensureActive();
   return JobTimer(self, parent, zone, duration, f);
-}
-
-extension CoroutineZoneExt on Zone {
-  CoroutineContext? get coroutineContext => this[CoroutineContext.symbol];
-
-  CompletableJob? get coroutineJob =>
-      coroutineContext?.get(Job.sKey) as CompletableJob?;
-
-  void ensureActive() {
-    final job = coroutineJob;
-    if (job == null) return;
-    if (job.isCancelled == true) {
-      throw job.getCancellationException();
-    }
-  }
-
-  CoroutineContext checkCoroutine() {
-    final context = coroutineContext;
-    assert(context != null, "Must run in CoroutineZone");
-    return context!;
-  }
-
-  JOB checkCoroutineJob<JOB extends CompletableJob>() {
-    final job = coroutineJob;
-    assert(job != null, "Must run in CoroutineZone");
-    // if(job is! JOB) throw StateError(message)
-    return job as JOB;
-  }
-
-  String get zoneName => "$runtimeType-$hashCode";
 }

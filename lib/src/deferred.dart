@@ -12,14 +12,14 @@ part 'deferred_impl.dart';
 abstract class Deferred<T> implements CompletableJob, Future<T> {
   factory Deferred(Job? parent, [Completer<T>? completer]) =>
       DeferredImpl<T>(parent, completer);
-  Future<T> get future;
 
   factory Deferred.delegate(CompletableJob job) => DelegatingDeferred(job);
+
+  Future<T> get future;
 }
 
 abstract class AbstractDeferred<T> extends CompletableJob
     implements Deferred<T> {
-
   @override
   Stream<T> asStream() => future.asStream();
 
@@ -40,5 +40,5 @@ abstract class AbstractDeferred<T> extends CompletableJob
       future.timeout(timeLimit, onTimeout: onTimeout);
 
   @override
-  Future<void> join() => future.then(thenIgnore, onError: thenIgnore);
+  Future<void> join() => future.thenIgnore();
 }

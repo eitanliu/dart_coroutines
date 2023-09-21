@@ -1,6 +1,6 @@
 part of coroutines.job;
 
-abstract class CompletableJob extends Job {
+abstract class CompletableJob extends CoroutineContextElement implements Job {
   Completer get completer;
 
   bool _isCancelled = false;
@@ -10,10 +10,13 @@ abstract class CompletableJob extends Job {
   void cancelJob([CancellationException? cause]) {
     _cancellationException = cause ?? getCancellationException();
     _isCancelled = true;
-    if (isActive) {
-      completer.completeError(getCancellationException());
-    }
+    // if (isActive) {
+    //   completer.completeError(getCancellationException());
+    // }
   }
+
+  @override
+  CoroutineContextKey<Job> get key => Job.sKey;
 
   @override
   bool get isActive => !completer.isCompleted;
@@ -26,13 +29,12 @@ abstract class CompletableJob extends Job {
 
   @override
   Future<void> join() {
-    return completer.future.then(thenIgnore, onError: thenIgnore);
+    return completer.future.thenIgnore();
   }
 
   bool parentCancelled() {
     Job? p = parent;
-    while (true) {
-      if (p == null) break;
+    while (p != null) {
       if (p.isCancelled == true) return true;
       p = p.parent;
     }
@@ -47,7 +49,7 @@ abstract class CompletableJob extends Job {
   @override
   CancellationException getCancellationException() {
     return parentCancellationException() ?? _cancellationException ??
-        CancellationException("Job was cancelled", StackTrace.current);
+        CancellationException("Job was cancelled");
   }
 
   CancellationException? parentCancellationException() {

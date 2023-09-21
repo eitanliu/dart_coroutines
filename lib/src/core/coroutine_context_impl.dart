@@ -32,7 +32,7 @@ class EmptyCoroutineContext implements CoroutineContext {
 
   @override
   bool operator ==(Object other) {
-    return this == other;
+    return other is EmptyCoroutineContext && I == other;
   }
 
   @override
@@ -85,7 +85,7 @@ class CombinedContext extends CoroutineContext {
 
   @override
   bool operator ==(Object other) {
-    return this == other;
+    return other is CombinedContext && this == other;
   }
 
   @override

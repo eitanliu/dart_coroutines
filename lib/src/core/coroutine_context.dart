@@ -1,3 +1,5 @@
+import 'package:coroutines/core.dart';
+
 import 'continuation_interceptor.dart';
 
 part 'coroutine_context_impl.dart';

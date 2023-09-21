@@ -2,6 +2,7 @@ import 'dart:async';
 
 import '_internal.dart';
 import 'core/coroutine_context.dart';
+import 'coroutine_stack_trace.dart';
 import 'coroutine_zone.dart';
 import 'deferred.dart';
 import 'job.dart';
@@ -10,6 +11,7 @@ Job launch(
   FutureOr Function() computation, {
   CoroutineContext context = CoroutineContext.empty,
 }) {
+  context += CoroutineStackTrace();
   final parentZone = Zone.current;
   final parentContext = parentZone.checkCoroutine();
   context = newCoroutineContext(parentContext, context);
@@ -17,10 +19,11 @@ Job launch(
   final job = zone.checkCoroutineJob();
   // zone.createTimer(Duration.zero, () {
   logcat("launch complete");
-  zone.runGuarded(() {
+  zone.runGuarded(() async {
     try {
       logcat("launch complete start");
-      job.completer.complete(computation());
+      final result = await computation();
+      job.completer.complete(result);
       logcat("launch complete end");
     } catch (e, s) {
       logcat("launch completeError");
@@ -35,16 +38,14 @@ Deferred<T> defer<T>(
   FutureOr<T> Function() computation, {
   CoroutineContext context = CoroutineContext.empty,
 }) {
+  context += CoroutineStackTrace();
   final parentZone = Zone.current;
   final parentContext = parentZone.checkCoroutine();
   Job? job = context.get(Job.sKey);
   if (job == null) {
     job = Deferred<T>(parentZone.coroutineJob);
-    logcat("defer job $job");
   } else if (job is CompletableJob) {
     job = Deferred<T>.delegate(job);
-
-    logcat("defer delegate job $job");
   }
   if (job is! Deferred<T>) {
     throw StateError('In defer, Job must be Deferred');
@@ -53,10 +54,13 @@ Deferred<T> defer<T>(
   context = newCoroutineContext(parentContext, context + deferred);
 
   final zone = CoroutineZone(context);
-  zone.runGuarded(() {
+  zone.scheduleMicrotask(() {
     try {
+      logcat("defer complete start");
       deferred.completer.complete(computation());
+      logcat("defer complete end");
     } catch (e, s) {
+      logcat("defer completeError");
       // if(!deferred.completer.isCompleted)
       deferred.completer.completeError(e, s);
     }
