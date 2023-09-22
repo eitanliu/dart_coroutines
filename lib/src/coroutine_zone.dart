@@ -61,7 +61,6 @@ Map<Object?, Object?> _createCoroutineZoneValues(CoroutineContext context) {
   final stackTrace = context.get(CoroutineStackTrace.sKey);
   return {
     CoroutineContext.symbol: context,
-    if (stackTrace != null) CoroutineStackTrace.sKey: stackTrace,
   };
 }
 
@@ -106,17 +105,20 @@ void _handleUncaughtError(Zone self, ZoneDelegate parent, Zone zone,
     logcat("UncaughtErrorJob canceled $cancelled ${job.isCompleted}");
     if (cancelled) {
       logcat("Cancellation Trace ${error.stackTrace}");
+      job.completer.completeError(error, stackTrace);
       parent.handleUncaughtError(zone, error, stackTrace);
     } else {
       // logcat("err $error ${error.hashCode}");
       logcat("Cancellation Trace ${error.stackTrace}");
-      // parent.handleUncaughtError(zone, error, stackTrace);
+      parent.handleUncaughtError(zone, error, stackTrace);
     }
   } else if (handler != null) {
     handler.handleUncaughtError(self, parent, zone, error, stackTrace);
   } else {
     // logcat("err $error ${error.hashCode}");
     // logcat("$stackTrace");
+    // job.completer.completeError(error, stackTrace);
+    job.completer.completeError(error, stackTrace);
     parent.handleUncaughtError(zone, error, stackTrace);
   }
 }

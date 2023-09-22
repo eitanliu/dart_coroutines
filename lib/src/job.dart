@@ -20,6 +20,8 @@ abstract class Job extends CoroutineContextElement {
   static CompletableJob supervisor([Job? parent, Completer? completer]) =>
       _SupervisorJobImpl(parent, completer);
 
+  static CompletableJob get current => Zone.current.checkCoroutineJob();
+
   @override
   CoroutineContextKey<Job> get key => sKey;
 

@@ -15,6 +15,23 @@ abstract class Deferred<T> implements CompletableJob, Future<T> {
 
   factory Deferred.delegate(CompletableJob job) => DelegatingDeferred(job);
 
+  factory Deferred.context(CoroutineContext context, [Zone? zone]) {
+    Job? job = context.get(Job.sKey);
+    if (job == null) {
+      zone ??= Zone.current;
+      job = Deferred<T>(zone.coroutineJob);
+    } else if (job is Deferred<T>) {
+    } else if (job is CompletableJob) {
+      job = Deferred<T>.delegate(job);
+    }
+    if (job is! Deferred<T>) {
+      throw StateError('In defer, Job must be Deferred');
+    }
+
+    final deferred = job;
+    return deferred;
+  }
+
   Future<T> get future;
 }
 

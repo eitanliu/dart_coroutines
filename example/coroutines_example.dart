@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:coroutines/core.dart';
 import 'package:coroutines/coroutines.dart';
 import 'package:coroutines/src/_internal.dart';
 
@@ -10,13 +11,19 @@ void main() async {
   print("main end");
 }
 
-Future testZone() async{
+Future testZone() async {
   final zone = CoroutineZone(CoroutineContext.empty);
-  zone.runGuarded(()async {
-    throw 1;
-    await Future.delayed(Duration.zero);
+  zone.runGuarded(() {
+    final a = throwTest();
+    zone.checkCoroutineJob().completer.complete(a);
   });
-  return zone.coroutineJob;
+  return zone.coroutineJob!.join();
+}
+
+throwTest() {
+  // await Future.delayed(Duration.zero);
+  // return 1;
+  throw CancellationException("message", StackTrace.current);
 }
 
 Job suspendZone() {
