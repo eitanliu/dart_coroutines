@@ -16,7 +16,7 @@ Job launch(
 }) {
   context += CoroutineStackTrace();
   final parentZone = Zone.current;
-  final parentContext = parentZone.checkCoroutine();
+  final parentContext = parentZone.coroutineContext ?? CoroutineContext.empty;
   context = newCoroutineContext(parentContext, context);
   final zone = CoroutineZone(context);
   final job = zone.checkCoroutineJob();
@@ -48,7 +48,7 @@ Deferred<T> defer<T>(
 }) {
   context += CoroutineStackTrace();
   final parentZone = Zone.current;
-  final parentContext = parentZone.checkCoroutine();
+  final parentContext = parentZone.coroutineContext ?? CoroutineContext.empty;
   Job? job = context.get(Job.sKey);
   if (job == null) {
     job = Deferred<T>(parentZone.coroutineJob);
@@ -70,6 +70,7 @@ Deferred<T> defer<T>(
     if (value is Future<T>) {
       value.then((value) {
         logcat("defer complete async $value");
+        deferred.completer.complete(value);
       });
     } else {
       logcat("defer complete sync $value");
